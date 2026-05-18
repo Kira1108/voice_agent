@@ -1,5 +1,5 @@
 import asyncio
-from typing import Optional, TYPE_CHECKING, AsyncGenerator
+from typing import Optional, TYPE_CHECKING, AsyncGenerator, Union
 from abc import ABC, abstractmethod
 from voice_agent.events import VoiceAgentEvent, EventType
 from voice_agent.frame import Frame
@@ -101,13 +101,13 @@ class PipelineComponent(ABC):
 
 class BaseSourceComponent(PipelineComponent):
     """
-    Base class for source components that generate frames from external events (e.g. WebSockets, WebRTC)
-    rather than consuming frames from an upstream queue.
+    Base class for source components that receive messages (frames or events) from external sources
+    (e.g. WebSockets, WebRTC) rather than consuming frames from an upstream queue.
     """
     
     @abstractmethod
-    async def generate_frames(self) -> AsyncGenerator[Frame, None]:
-        """Yield frames as they are generated or received from an external source"""
+    async def receive_messages(self) -> AsyncGenerator[Union[Frame, VoiceAgentEvent], None]:
+        """Yield frames and events as they are received from an external source"""
         yield NotImplemented
 
     async def process_frame(self, frame: Frame):
@@ -115,7 +115,7 @@ class BaseSourceComponent(PipelineComponent):
         pass
 
     async def run(self):
-        generator = self.generate_frames()
+        generator = self.receive_messages()
         stop_task = asyncio.create_task(self._stop_event.wait())
         get_task = None
         
@@ -135,19 +135,22 @@ class BaseSourceComponent(PipelineComponent):
             )
             
             if get_task in done:
-                frame = get_task.result()
+                message = get_task.result()
                 get_task = None  # reset for the next iteration
                 
-                if frame is None:
+                if message is None:
                     # Generator is exhausted
                     break
                 
                 try:
-                    await self.push(frame)
+                    if isinstance(message, Frame):
+                        await self.push(message)
+                    elif isinstance(message, VoiceAgentEvent):
+                        await self.emit(message)
                 except asyncio.CancelledError:
-                    print(f"[{self.name}] push cancelled")
+                    print(f"[{self.name}] routing cancelled")
                 except Exception as e:
-                    print(f"[{self.name}] encountered an error pushing frame: {e}")
+                    print(f"[{self.name}] encountered an error routing message: {e}")
                     
             if stop_task in done:
                 if get_task is not None:

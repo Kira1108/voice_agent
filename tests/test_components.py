@@ -65,16 +65,19 @@ async def test_component_stop_on_session_ended():
     assert comp._stop_event.is_set()
 
 class MockSourceComponent(BaseSourceComponent):
-    async def generate_frames(self):
+    async def receive_messages(self):
         for i in range(3):
             await asyncio.sleep(0.01)  # Simulate Network IO
             yield TextFrame(text=f"source frame {i}")
+        yield VoiceAgentEvent(type=EventType.USER_STOPPED_SPEAKING)
 
 @pytest.mark.asyncio
 async def test_source_component_generation():
+    from voice_agent.session.agent_session import AgentSession
     source = MockSourceComponent("SourceComp")
     sink = MockComponent("SinkComp")
-    
+    session = AgentSession()
+    source.bind_session(session)
     # Connect source directly to a sink
     source.to(sink)
     
@@ -91,6 +94,11 @@ async def test_source_component_generation():
     assert len(sink.processed_frames) == 3
     assert sink.processed_frames[0].text == "source frame 0"
     assert sink.processed_frames[2].text == "source frame 2"
+    
+    # Check if the event was generated and received by the session
+    assert session.event_queue.qsize() == 1
+    event = await session.event_queue.get()
+    assert event.type == EventType.USER_STOPPED_SPEAKING
     
     # Clean up sink task
     sink._stop_event.set()
