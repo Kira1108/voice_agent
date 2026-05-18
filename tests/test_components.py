@@ -19,7 +19,7 @@ async def test_pipeline_chaining():
     comp2 = MockComponent("Comp2")
     
     # link pipeline components
-    comp1.set_next(comp2)
+    comp1.to(comp2)
     assert comp1.next_component == comp2
 
     # Provide initial frame
@@ -76,7 +76,7 @@ async def test_source_component_generation():
     sink = MockComponent("SinkComp")
     
     # Connect source directly to a sink
-    source.set_next(sink)
+    source.to(sink)
     
     t_source = asyncio.create_task(source.run())
     t_sink = asyncio.create_task(sink.run())

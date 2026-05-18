@@ -17,7 +17,7 @@ class PipelineComponent(ABC):
         self.next_component: Optional['PipelineComponent'] = None
         self._stop_event: asyncio.Event = asyncio.Event()
     
-    def set_next(self, next_comp: 'PipelineComponent') -> 'PipelineComponent':
+    def to(self, next_comp: 'PipelineComponent') -> 'PipelineComponent':
         """set next component in the pipeline and return it for chaining"""
         self.next_component = next_comp
         return next_comp
