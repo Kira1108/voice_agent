@@ -1,1 +1,1 @@
-from .base import VoiceAgentEvent
+from .base import VoiceAgentEvent, EventType
