@@ -4,18 +4,17 @@ import hashlib
 import hmac
 import json
 import os
-import urllib.parse
-from functools import lru_cache
-from pathlib import Path
-from uuid import uuid4
+import random
 import time
+import urllib.parse
+from datetime import datetime, timedelta
+from uuid import uuid4
 
 import websockets
-from datetime import datetime, timedelta
-import random
 
 from voice_agent.components.stt import BaseSTTComponent
 from voice_agent.frame import AudioFrame, TextFrame
+
 
 def _generate_unique_id() -> str:
     """Generate a unique ID for voice session."""
