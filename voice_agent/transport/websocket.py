@@ -9,15 +9,16 @@ class WebSocketTransport:
     
     def __init__(self, websocket: WebSocket):
         self.websocket = websocket
+        self._input = WebSocketInputComponent(websocket=self.websocket)
+        self._output = WebSocketOutputComponent(websocket=self.websocket)
         
     @property
     def input(self) -> BaseSourceComponent:
-        return WebSocketInputComponent(websocket=self.websocket)
-    
+        return self._input
     
     @property
     def output(self) -> PipelineComponent:
-        return WebSocketOutputComponent(websocket=self.websocket)
+        return self._output
     
 class WebSocketInputComponent(BaseSourceComponent):
     
@@ -56,7 +57,5 @@ class WebSocketOutputComponent(PipelineComponent):
         self.websocket = websocket
         
     async def process_frame(self, frame):
-        if isinstance(frame, AudioFrame):
-            await self.websocket.send_bytes(frame.audio_data)
         if isinstance(frame, AudioFrame):
             await self.websocket.send_bytes(frame.audio_data)
