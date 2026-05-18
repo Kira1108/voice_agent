@@ -1,12 +1,11 @@
 import asyncio
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, AsyncGenerator
 from abc import ABC, abstractmethod
 from voice_agent.events import VoiceAgentEvent, EventType
 from voice_agent.frame import Frame
 
 if TYPE_CHECKING:
     from voice_agent.session.agent_session import AgentSession
-
 
 class PipelineComponent(ABC):
     
@@ -94,6 +93,62 @@ class PipelineComponent(ABC):
                     self.input_queue.task_done()
                     
             # after processing the frame, check if we need to stop; if no frame was received, cancel the wait and exit
+            if stop_task in done:
+                if get_task is not None:
+                    get_task.cancel()
+                break
+
+
+class BaseSourceComponent(PipelineComponent):
+    """
+    Base class for source components that generate frames from external events (e.g. WebSockets, WebRTC)
+    rather than consuming frames from an upstream queue.
+    """
+    
+    @abstractmethod
+    async def generate_frames(self) -> AsyncGenerator[Frame, None]:
+        """Yield frames as they are generated or received from an external source"""
+        yield NotImplemented
+
+    async def process_frame(self, frame: Frame):
+        """Source components generally do not process upstream frames."""
+        pass
+
+    async def run(self):
+        generator = self.generate_frames()
+        stop_task = asyncio.create_task(self._stop_event.wait())
+        get_task = None
+        
+        async def get_next():
+            try:
+                return await anext(generator)
+            except StopAsyncIteration:
+                return None
+
+        while not self._stop_event.is_set():
+            if get_task is None:
+                get_task = asyncio.create_task(get_next())
+            
+            done, pending = await asyncio.wait(
+                [get_task, stop_task], 
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            if get_task in done:
+                frame = get_task.result()
+                get_task = None  # reset for the next iteration
+                
+                if frame is None:
+                    # Generator is exhausted
+                    break
+                
+                try:
+                    await self.push(frame)
+                except asyncio.CancelledError:
+                    print(f"[{self.name}] push cancelled")
+                except Exception as e:
+                    print(f"[{self.name}] encountered an error pushing frame: {e}")
+                    
             if stop_task in done:
                 if get_task is not None:
                     get_task.cancel()
