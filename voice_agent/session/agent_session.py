@@ -42,7 +42,7 @@ class AgentSession:
         # 抛出或记录异常（防止被静默吞并）
         for comp, res in zip(components, results):
             if isinstance(res, Exception):
-                print(f"[{getattr(comp, 'name', 'Unknown')}] 事件处理异常: {res}")
+                print(f"[{getattr(comp, 'name', 'Unknown')}] event handling error: {res}")
     
     async def run(self):
         while True:

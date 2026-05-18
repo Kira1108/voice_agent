@@ -8,7 +8,7 @@ class Frame(ABC):
 @dataclass
 class AudioFrame(Frame):
     audio_data: bytes
-    
+
 @dataclass
 class TextFrame(Frame):
     text: str
