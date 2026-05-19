@@ -6,8 +6,10 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from voice_agent.components.base import PipelineComponent
 from voice_agent.frame import AudioFrame, TextFrame
+from voice_agent.frame.base import TextStreamFrame
 from voice_agent.pipeline.base import Pipeline
 from voice_agent.plugins.tecent.stt import TencentStreamingSTT
+from voice_agent.plugins.azure.llm import SimpleAzureLLM
 from voice_agent.transport.websocket import WebSocketTransport
 
 router = APIRouter()
@@ -105,6 +107,76 @@ async def websocket_transcribe_endpoint(websocket: WebSocket):
         pass
     except Exception as e:
         print(f"Transcription Pipeline encountered an error: {e}")
+    finally:
+        try:
+            await pipeline.stop()
+        except Exception:
+            pass
+
+
+class StreamingConsolePrintComponent(PipelineComponent):
+    def __init__(self):
+        super().__init__(name="StreamingConsolePrintComponent")
+
+    async def process_frame(self, frame):
+        if isinstance(frame, TextStreamFrame):
+            if frame.is_first:
+                # 当第一个 token 到达的时候，打印一下换行和前缀
+                print(f"\n[🤖 LLM 响应 ID: {frame.response_id}]: ", end="", flush=True)
+            
+            if frame.text_chunk:
+                # 后面源源不断的字，像打字机一样衔接下去
+                print(frame.text_chunk, end="", flush=True)
+            
+            if frame.is_end:
+                # 如果这个句子的 response 结束了，换一个新行
+                print()
+
+
+@router.websocket("/ws/llm")
+async def websocket_llm_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    
+    transport = WebSocketTransport(websocket)
+    input_comp = transport.input
+    
+    # 也可以加载其它环境参数
+    load_dotenv(Path.home() / ".env")
+    
+    # 加载 ASR 环境变量
+    base_url = os.getenv("TENCENT_ASR_BASE_URL")
+    part_url = os.getenv("TENCENT_ASR_PART_URL")
+    secret_id = os.getenv("TENCENT_ASR_SECRET_ID")
+    secret_key = os.getenv("TENCENT_ASR_SECRET_KEY")
+    
+    if not all([base_url, part_url, secret_id, secret_key]):
+        raise ValueError("Tencent ASR credentials are not fully set in the environment variables.")
+    
+    stt_comp = TencentStreamingSTT(
+        base_url=base_url,
+        part_url=part_url,
+        secret_id=secret_id,
+        secret_key=secret_key,
+        vad_silence=1000
+    )
+    
+    # 初始化 LLM （里面会自动读取 AZURE_OPENAI 开头的环境变量，以及默认模型名 gpt-4o）
+    llm_comp = SimpleAzureLLM(model="gpt-4o")
+    
+    # 创建流式打字机在后端的打印组件
+    print_comp = StreamingConsolePrintComponent()
+    
+    # 构建管道： Audio -> ASR -> LLM -> Print
+    input_comp.to(stt_comp).to(llm_comp).to(print_comp)
+    
+    pipeline = Pipeline(components=[input_comp, stt_comp, llm_comp, print_comp])
+    
+    try:
+        await pipeline.run()
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        print(f"LLM Pipeline encountered an error: {e}")
     finally:
         try:
             await pipeline.stop()
