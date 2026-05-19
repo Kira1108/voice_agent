@@ -44,7 +44,10 @@ class SimpleAzureLLM(PipelineComponent):
             # 修正 1: 使用最新的 openai SDK 调用方式
             response = await self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "user", "content": user_text}],
+                messages=[
+                    {"role": "system", "content": "你是一个可爱的语音助手，协助我完成各种任务， 每次你回复我不能超过20个字， 要简短。"},
+                    {"role": "user", "content": user_text}
+                ],
                 stream=True
             )
             

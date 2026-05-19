@@ -10,6 +10,7 @@ from voice_agent.frame.base import TextStreamFrame
 from voice_agent.pipeline.base import Pipeline
 from voice_agent.plugins.tecent.stt import TencentStreamingSTT
 from voice_agent.plugins.azure.llm import SimpleAzureLLM
+from voice_agent.plugins.mlx.tts import MlxTTSComponent
 from voice_agent.transport.websocket import WebSocketTransport
 
 router = APIRouter()
@@ -177,6 +178,57 @@ async def websocket_llm_endpoint(websocket: WebSocket):
         pass
     except Exception as e:
         print(f"LLM Pipeline encountered an error: {e}")
+    finally:
+        try:
+            await pipeline.stop()
+        except Exception:
+            pass
+
+@router.websocket("/ws/agent")
+async def websocket_full_agent_endpoint(websocket: WebSocket):
+    """
+    全量 Voice Agent 端点：
+    Mic (Input) -> Tencent ASR -> Azure LLM -> MLX TTS -> Speaker (Output)
+    """
+    await websocket.accept()
+    
+    transport = WebSocketTransport(websocket)
+    input_comp = transport.input
+    output_comp = transport.output
+    
+    load_dotenv(Path.home() / ".env")
+    
+    base_url = os.getenv("TENCENT_ASR_BASE_URL")
+    part_url = os.getenv("TENCENT_ASR_PART_URL")
+    secret_id = os.getenv("TENCENT_ASR_SECRET_ID")
+    secret_key = os.getenv("TENCENT_ASR_SECRET_KEY")
+    
+    if not all([base_url, part_url, secret_id, secret_key]):
+        raise ValueError("Tencent ASR credentials missing.")
+        
+    stt_comp = TencentStreamingSTT(
+        base_url=base_url,
+        part_url=part_url,
+        secret_id=secret_id,
+        secret_key=secret_key,
+        vad_silence=1000
+    )
+    
+    llm_comp = SimpleAzureLLM(model="gpt-4o")
+    tts_comp = MlxTTSComponent(voice="serena") 
+    
+    # 构建全闭环管道 （暂不支持中途打断）
+    # input(mic) -> ASR -> LLM -> TTS -> output(speaker)
+    input_comp.to(stt_comp).to(llm_comp).to(tts_comp).to(output_comp)
+    
+    pipeline = Pipeline(components=[input_comp, stt_comp, llm_comp, tts_comp, output_comp])
+    
+    try:
+        await pipeline.run()
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        print(f"Agent Pipeline error: {e}")
     finally:
         try:
             await pipeline.stop()
