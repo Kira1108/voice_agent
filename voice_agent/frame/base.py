@@ -12,3 +12,11 @@ class AudioFrame(Frame):
 @dataclass
 class TextFrame(Frame):
     text: str
+    
+    
+@dataclass
+class TextStreamFrame(Frame):
+    text_chunk:str
+    response_id:str
+    is_first:bool
+    is_end:bool
