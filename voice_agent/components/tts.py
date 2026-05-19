@@ -34,9 +34,10 @@ class BaseTTSComponent(PipelineComponent):
         pass
 
     @abstractmethod
-    def synthesize(self, text: str) -> AsyncGenerator[AudioFrame, None]:
+    async def synthesize(self, text: str) -> AsyncGenerator[AudioFrame, None]:
         """Yield AudioFrames as speech audio generated from the given text."""
-        yield NotImplemented
+        raise NotImplementedError
+        yield
         
     @abstractmethod
     async def stop_engine(self):
