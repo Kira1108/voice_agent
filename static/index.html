@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Agent</title>
+    <!-- 引入高级冷峻的现代英文字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            text-align: center; 
+            margin: 0; 
+            padding: 0;
+            /* 极客风的深空背景：深蓝与暗紫交织的微光网格 */
+            background-color: #0b0f19;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(0, 242, 254, 0.08) 0%, transparent 40%), 
+                radial-gradient(circle at 85% 30%, rgba(79, 172, 254, 0.12) 0%, transparent 40%);
+            color: #d4d4d4; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            /* 毛玻璃（Glassmorphism）极简质感卡片 */
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 30px;
+            padding: 50px 40px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 450px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #fff;
+            margin: 0 0 10px;
+            font-weight: 600;
+            font-size: 28px;
+            letter-spacing: 1px;
+        }
+
+        p.subtitle {
+            color: #8892b0;
+            font-weight: 300;
+            font-size: 14px;
+            margin-bottom: 40px;
+        }
+
+        /* 核心视觉：AI 语音能量球 */
+        .orb-container {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 50px;
+        }
+
+        .orb {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            /* 沉睡状态更改为：带有微弱极光青色的高级幽暗冰玻球 */
+            background: linear-gradient(135deg, #1b2a47 0%, #0b111e 100%);
+            box-shadow: inset 0 0 25px rgba(0, 242, 254, 0.1), 0 0 15px rgba(0,0,0,0.5);
+            transition: background 0.8s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.8s cubic-bezier(0.4, 0, 0.2, 1), scale 0.05s ease-out;
+            position: relative;
+            z-index: 2;
+            /* 增加 CSS 3 scale 独立通道，接收麦克风音量变量进行颤抖！ */
+            scale: calc(1 + var(--mic-vol, 0) * 0.4);
+        }
+
+        .orb-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            z-index: 1;
+        }
+
+        /* ================== 状态动画 ================== */
+        
+        /* 1. 连接中的载入旋转 */
+        .orb.loading {
+            background: conic-gradient(from 0deg, transparent 0%, rgba(0, 242, 254, 0.8) 100%);
+            animation: spin 1s linear infinite;
+        }
+        .orb.loading::after {
+            content: "";
+            position: absolute;
+            top: 4px; left: 4px; right: 4px; bottom: 4px;
+            background: #111;
+            border-radius: 50%;
+        }
+
+        /* 2. 通话中的呼吸与全息光波 */
+        .orb.active {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            box-shadow: 0 0 30px rgba(0, 242, 254, 0.5), 0 0 60px rgba(0, 242, 254, 0.3);
+            animation: breath 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        .orb.active ~ .orb-ring {
+            /* 边框厚度和光晕也会随着你讲话的声音强弱实时激增 */
+            border: calc(2px + var(--mic-vol, 0) * 5px) solid rgba(0, 242, 254, calc(0.4 + var(--mic-vol, 0) * 0.6));
+            animation: ripple 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+        }
+        .orb.active ~ .orb-ring.delay {
+            animation-delay: 1.25s;
+        }
+
+        @keyframes breath {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); box-shadow: 0 0 50px rgba(0, 242, 254, 0.8), 0 0 100px rgba(0, 242, 254, 0.4); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes ripple {
+            0% { width: 80px; height: 80px; opacity: 1; border-width: 3px; }
+            100% { width: 220px; height: 220px; opacity: 0; border-width: 1px; }
+        }
+
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ================== 控制区 ================== */
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            width: 100%;
+        }
+
+        button { 
+            flex: 1;
+            padding: 16px 0; 
+            font-size: 15px; 
+            font-family: inherit;
+            cursor: pointer; 
+            border: 1px solid transparent;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #startBtn {
+            background: rgba(0, 242, 254, 0.1);
+            color: #00f2fe;
+            border-color: rgba(0, 242, 254, 0.3);
+        }
+        
+        #startBtn:hover:not(:disabled) {
+            background: rgba(0, 242, 254, 0.2);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.3);
+        }
+
+        #stopBtn {
+            background: rgba(255, 75, 75, 0.1);
+            color: #ff4b4b;
+            border-color: rgba(255, 75, 75, 0.3);
+        }
+
+        #stopBtn:hover:not(:disabled) {
+            background: rgba(255, 75, 75, 0.2);
+            box-shadow: 0 0 15px rgba(255, 75, 75, 0.3);
+        }
+
+        button:disabled {
+            background: rgba(255, 255, 255, 0.05) !important;
+            color: rgba(255, 255, 255, 0.2) !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        button:active:not(:disabled) {
+            transform: scale(0.96);
+        }
+
+        /* 状态字 */
+        #status { 
+            margin-top: 25px; 
+            font-weight: 400; 
+            font-size: 13px;
+            color: #8892b0;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            transition: color 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Voice Agent</h1>
+        <p class="subtitle">AEC & Noise Suppression Enabled</p>
+
+        <!-- UI视觉核心 -->
+        <div class="orb-container">
+            <div id="orb" class="orb"></div>
+            <!-- 用于发射波纹的背景环 -->
+            <div class="orb-ring"></div>
+            <div class="orb-ring delay"></div>
+        </div>
+
+        <div class="controls">
+            <button id="startBtn">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                Connect
+            </button>
+            <button id="stopBtn" disabled>
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                End Call
+            </button>
+        </div>
+        
+        <div id="status">Ready to connect</div>
+    </div>
+
+    <!-- 我们的底层音频流与网络通信黑盒 -->
+    <script src="/app.js"></script>
+
+    <!-- UI特效映射控制器（完全不侵入甚至不改动 app.js 的主逻辑） -->
+    <script>
+        const statusEl = document.getElementById('status');
+        const orbEl = document.getElementById('orb');
+
+        // 使用 MutationObserver 监听 statusDiv 的文字变化，从而驱动核心特效能量球！
+        const observer = new MutationObserver(() => {
+            const txt = statusEl.innerText.toLowerCase();
+            
+            // 重置状态
+            orbEl.classList.remove('loading', 'active');
+            
+            if (txt.includes('active')) {
+                // 通话接通，进入梦幻呼吸+光波阵列
+                orbEl.classList.add('active');
+                statusEl.style.color = '#00f2fe';
+            } else if (txt.includes('connecting') || txt.includes('starting')) {
+                // 后端尚未握手成功，或者仍在 JIT 编译准备期，雷达转圈
+                orbEl.classList.add('loading');
+                statusEl.style.color = '#8892b0';
+            } else if (txt.includes('error')) {
+                statusEl.style.color = '#ff4b4b';
+            } else {
+                // 默认断开状态，灰暗沉寂
+                statusEl.style.color = '#8892b0';
+            }
+        });
+
+        // 绑定监听器
+        observer.observe(statusEl, { childList: true, characterData: true, subtree: true });
+    </script>
+</body>
+</html>
