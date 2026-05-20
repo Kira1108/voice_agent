@@ -1,15 +1,5 @@
 # Voice Agent Framework
 
-## 核心设计思想 (Core Design)
-
-该框架采用**“数据流（Data Plane）与控制流（Control Plane）”解耦**的全异步图结构（Graph）架构设计。其核心由四大要素紧密协作：
-
-1. **Components（组件）**：框架内的基础工作单元（如 STT、LLM、TTS 节点）。每个组件都在独立的异步任务中运行，拥有自己的输入队列并独立消化数据，完全消除了因为某个节点的耗时（如网络请求）而阻塞整条链路的可能。
-2. **Frame Flow（数据流）**：实体数据（如音频 `AudioFrame`，文本 `TextFrame`）在图网络中以有向的方式顺流而下。上游组件处理完毕后，直接 `push` 到所有通过 `.to()` 建立连接的下游组件队列中，实现数据和处理结果的自然传递。
-3. **Events（控制流）**：高优先级的全局信号。受制于网络和硬件 IO，数据流（Frames）在管道中漫流可能会堆积并导致延迟；但是对于“语音打断（Interruption）”等需要立即响应的场景，系统需要一条脱离队列的高速公路，这就是 Events。
-4. **AgentSession（会话与中枢）**：作为整个图的生命周期与事件总线（Event Bus）管理核心。它将所有零散的组件绑定到一起。当某组件（如 VAD）触发 `用户开始说话 (打断)` 事件时，Session 会立即将其广播给所有组件；下游的组件（如正在排队等候合成的 TTS 组件）接收到事件后，便可立即执行 `flush_queue()` 丢弃遗留的脏数据并停止当前生成，从而实现低延迟、高灵活的流式对话。
-
----
 
 An asynchronous, event-driven, pipeline-based framework for building streaming voice agents. This framework allows you to construct audio and text processing pipelines using a source-processor-sink topology, fully managed by an event-driven session lifecycle.
 
