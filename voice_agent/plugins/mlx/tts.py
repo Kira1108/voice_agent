@@ -6,6 +6,9 @@ from mlx_audio.tts.utils import load_model
 
 from voice_agent.components.tts import BaseTTSComponent
 from voice_agent.frame.base import AudioFrame
+from pathlib import Path
+
+DEFAULT_VOICE_REF = Path(__file__).parent.parent.parent / "voices" / "bejing-woman.wav"
 
 _GLOBAL_MLX_MODEL = None
 
@@ -17,7 +20,7 @@ class MlxTTSComponent(BaseTTSComponent):
     
     def __init__(self, 
                  model_id: str = "/Users/wanghuan/.cache/huggingface/hub/models--mlx-community--Qwen3-TTS-12Hz-1.7B-Base-8bit/snapshots/e7dd0585652209fa0d7783659aad4e8a324de11c", 
-                 voice: str = "serena",
+                 voice: str = "Dylan",
                  streaming_interval: float = 0.32,
                  name: str = "MlxTTS", 
                  queue_size: int = 100):
@@ -55,13 +58,16 @@ class MlxTTSComponent(BaseTTSComponent):
 
         print(f"[{self.name}] Synthesizing: {text}")
         
+        ref_audio_path_str = str(DEFAULT_VOICE_REF)
+        
         # Initialize the synchronous mlx_audio generator
         sync_gen = self.model.generate(
             text=text,
             voice=self.voice,
             stream=True,
             streaming_interval=self.streaming_interval,
-            seed = 1.0
+            seed = 1.0,
+            ref_audio=ref_audio_path_str
         )
         
         while not self._stop_event.is_set():
