@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from voice_agent.api.websocket import router as websocket_router
 
 
@@ -18,4 +19,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(websocket_router)
+
+# Mount the static directory to serve the frontend interface
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
 

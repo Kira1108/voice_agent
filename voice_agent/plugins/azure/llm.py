@@ -30,6 +30,10 @@ class SimpleAzureLLM(PipelineComponent):
             api_key=api_key
         )
 
+        
+        self.memory = [
+            {"role": "system", "content": "你是一个可爱的语音助手，协助我完成各种任务。 说话要口语化，不要带有emoji，markdown格式，各种文本符号，要可爱一点，自然一点。"}
+        ]
     async def process_frame(self, frame: Frame):
         
         response_id = str(uuid4())
@@ -41,18 +45,17 @@ class SimpleAzureLLM(PipelineComponent):
             
             print(f"[{self.name}] User said: {user_text}")
             
+            self.memory.append({"role": "user", "content": user_text})
             # 修正 1: 使用最新的 openai SDK 调用方式
             response = await self.client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": "你是一个可爱的语音助手，协助我完成各种任务， 每次你回复我不能超过20个字， 要简短。"},
-                    {"role": "user", "content": user_text}
-                ],
+                messages=self.memory,
                 stream=True
             )
             
             is_first = True
             
+            buffered_response = ""
             async for chunk in response:
                 # 某些情况下 choices 可能为空，保险起见加上判断
                 if not chunk.choices:
@@ -62,6 +65,7 @@ class SimpleAzureLLM(PipelineComponent):
                 content = chunk.choices[0].delta.content or ""
                 
                 if content:
+                    buffered_response += content
                     await self.push(
                         TextStreamFrame(
                             text_chunk=content, 
@@ -81,3 +85,4 @@ class SimpleAzureLLM(PipelineComponent):
                         is_end=True
                     )
                 )
+                self.memory.append({"role": "assistant", "content": buffered_response})
