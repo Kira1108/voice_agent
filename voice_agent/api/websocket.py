@@ -211,7 +211,7 @@ async def websocket_full_agent_endpoint(websocket: WebSocket):
         part_url=part_url,
         secret_id=secret_id,
         secret_key=secret_key,
-        vad_silence=1000
+        vad_silence=200
     )
     
     llm_comp = SimpleAzureLLM(model="gpt-4o")
