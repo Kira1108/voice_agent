@@ -4,6 +4,7 @@ from voice_agent.frame.base import Frame, TextFrame, TextStreamFrame
 from openai import AsyncAzureOpenAI
 from uuid import uuid4
 import os
+import time
 
 
 class SimpleAzureLLM(PipelineComponent):
@@ -54,7 +55,7 @@ class SimpleAzureLLM(PipelineComponent):
             )
             
             is_first = True
-            
+            start = time.perf_counter()
             buffered_response = ""
             async for chunk in response:
                 # 某些情况下 choices 可能为空，保险起见加上判断
@@ -74,8 +75,11 @@ class SimpleAzureLLM(PipelineComponent):
                             is_end=False
                         )
                     )
-                    is_first = False
-            
+                    if is_first:
+                        TTFT = (time.perf_counter() - start) * 1000
+                        print(f"  [LLM] 首字到达时间: {TTFT:.2f} ms")
+                        is_first = False
+                                
             if not is_first: # 确保有过正常输出才发送结束包
                 await self.push(
                     TextStreamFrame(
