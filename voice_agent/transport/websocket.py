@@ -58,4 +58,12 @@ class WebSocketOutputComponent(PipelineComponent):
         
     async def process_frame(self, frame):
         if isinstance(frame, AudioFrame):
-            await self.websocket.send_bytes(frame.audio_data)
+            try:
+                await self.websocket.send_bytes(frame.audio_data)
+            except RuntimeError as e:
+                if "close" in str(e).lower() or "disconnected" in str(e).lower():
+                    pass # Ignore if the socket has already been closed
+                else:
+                    raise e
+            except Exception as e:
+                print(f"[WebSocketOutput] encountered an error: {e}")

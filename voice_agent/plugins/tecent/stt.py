@@ -35,7 +35,7 @@ def _generate_signature(message: str, secret_key) -> str:
 def _build_api_url(base_url:str, part_url:str,secret_id:str, secret_key:str,vad_silence: int = 1000) -> str:
     """Build the WebSocket API URL with authentication parameters."""
     params = [
-        "engine_model_type=16k_zh",
+        "engine_model_type=16k_zh_large",
         "needvad=1",
         f"timestamp={int(time.time())}",
         f"vad_silence_time={vad_silence}",
@@ -43,6 +43,7 @@ def _build_api_url(base_url:str, part_url:str,secret_id:str, secret_key:str,vad_
         f"expired={int((datetime.now() + timedelta(days=1)).timestamp())}",
         f"voice_id={_generate_unique_id()}",
         "voice_format=1",
+        "noise_threshold=1",
         f"nonce={random.randint(100000, 999999)}",
     ]
     params.sort()
